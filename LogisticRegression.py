@@ -34,6 +34,7 @@ class LogisticRegression:
         self.W = np.random.rand(window_size**2,num_classes)
         self.b = np.random.rand(1,num_classes)
         self.window_size = window_size
+        
 
 
     @staticmethod
@@ -87,6 +88,7 @@ class LogisticRegression:
                     error_plot.append(0.1*CE[0,0] + 0.9*error_plot[-1])
             if(epoch%10==0):
                 print("Completed {} percent ".format(epoch*100//epochs)) 
+                learning_rate = learning_rate/10
         
         plt.plot(error_plot,label="Cross entropy")
         plt.xlabel("sample_num x1000")
@@ -112,8 +114,8 @@ class LogisticRegression:
         """
         mask = np.zeros((input_image.shape[0],input_image.shape[1],self.num_classes))
         image = color.convert_colorspace(input_image,"RGB",color_space)[:,:,1]
-        image = (image - np.min(image))/(np.max(image) - np.min(image))
-        image = exposure.adjust_gamma(image,gamma=0.5)
+        #image = (image - np.min(image))/(np.max(image) - np.min(image))
+        #image = exposure.adjust_gamma(image,gamma=0.5)
         for i in range(self.window_size//2,mask.shape[0]-(self.window_size//2)):
             for j in range(self.window_size//2,mask.shape[1]-(self.window_size//2)):
                 window = image[i-(self.window_size//2):i+(self.window_size//2),j-(self.window_size//2):j+(self.window_size//2)]

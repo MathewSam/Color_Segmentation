@@ -218,12 +218,12 @@ class DataLoader:
         length = len(self.train_files)
 
         for dictionary in stored_values[:length]:
-            image = dictionary["YUV"]
-            image = (image[:,:,1] - np.min(image[:,:,1]))/(np.max(image[:,:,1]) - np.min(image[:,:,1]))
-            image = exposure.adjust_gamma(image,gamma=0.5)
+            image = dictionary["YUV"][:,:,1]
+            #image = (image[:,:,1] - np.min(image[:,:,1]))/(np.max(image[:,:,1]) - np.min(image[:,:,1]))
+            #image = exposure.adjust_gamma(image,gamma=0.5)
             mask = (dictionary["mask"]>0)*1
             for i in range(window_size//2,image.shape[0]-(window_size//2),step_size):
-                for j in range(window_size//2,image.shape[0]-(window_size//2),step_size):
+                for j in range(window_size//2,image.shape[1]-(window_size//2),step_size):
                     yield image[i-(window_size//2):i+(window_size//2),j-(window_size//2):j+(window_size//2)],mask[i,j,:]
 
 if __name__ == "__main__":
