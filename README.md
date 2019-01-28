@@ -1,5 +1,5 @@
 # GMM
-This project aims to build an object detection model using GMM and the EM algorithm.
+This project aims to build an object detection model using Logistic Regression algorithm.
 
 ## Programming environment
 For the purposes of this project, the model was built using a virtual environment.
@@ -16,6 +16,4 @@ The remaining libraries are mentioned in requirements.txt. To install these libr
 
 <p>** This is only for training purposes. imageio library is used for visualizing the lableing**</p>
 
-## Things to check
-- [ ] if gaussian is fit in color space 
-- [ ] do we need negative class? The only thing that separates similar colored objects is size occupied by the object
+
