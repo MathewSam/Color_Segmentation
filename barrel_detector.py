@@ -2,18 +2,20 @@
 ECE276A WI19 HW1
 Blue Barrel Detector
 '''
-
-import os, cv2
+import pickle
+import os, cv2 ,math
+import numpy as np
+from skimage import color
 from skimage.measure import label, regionprops
-from skimage.morphology import disk,square,erosion,dilation
+from skimage.morphology import disk,square,erosion,dilation,opening,closing
+from skimage.feature import match_template
 
 import matplotlib.pyplot as plt 
 
-from DataLoader import DataLoader
 from LogisticRegression import LogisticRegression
 
 class BarrelDetector():
-	def __init__(self,window_size,DM,classes,pickle_file="labeled_data/Stored_Values.pickle"):
+	def __init__(self,pickle_file="trained_model.pickle"):
 		'''
 			Initilize your blue barrel detector with the attributes you need
 			eg. parameters of your classifier
@@ -28,10 +30,8 @@ class BarrelDetector():
 				pickle_file:location of pickle file with data labeled using dataloader's labeling module
 				default:"labeled_data/Stored_Values.pickle"
 		'''
-		
-		self.model = LogisticRegression(window_size,num_classes=len(classes))
-		gen = DM.data_generator(pickle_file,window_size=window_size,step_size=2)
-		self.model.train(gen,epochs=1000,learning_rate=0.1)
+		with open(pickle_file,"rb") as handle:
+			self.model = pickle.load(handle)
 
 	def segment_image(self, img):
 		'''
@@ -45,9 +45,10 @@ class BarrelDetector():
 				mask_img - a binary image with 1 if the pixel in the original image is blue and 0 otherwise
 		'''
 		# YOUR CODE HERE
-		grayscale_prediciton = self.model.test_image(img)
-		mask_img = grayscale_prediciton[:,:,0]>0.99
-		return mask_img
+		grayscale_prediciton = self.model.test_image(img)[:,:,0]
+		#predictions =  (grayscale_prediciton[:,:,0] - np.min(grayscale_prediciton[:,:,0])/(np.max(grayscale_prediciton[:,:,0]) - np.min(grayscale_prediciton[:,:,0]))
+		grayscale_prediciton = (grayscale_prediciton - np.min(grayscale_prediciton))/(np.max(grayscale_prediciton) - np.min(grayscale_prediciton))
+		return grayscale_prediciton>0.5
 
 	def get_bounding_box(self, img):
 		'''
@@ -64,29 +65,43 @@ class BarrelDetector():
 			Our solution uses xy-coordinate instead of rc-coordinate. More information: http://scikit-image.org/docs/dev/user_guide/numpy_images.html#coordinate-conventions
 		'''
 		# YOUR CODE HERE
-		grayscale_prediciton = self.model.test_image(img)[:,:,0]
-		return grayscale_prediciton
+		grayscale_prediciton = self.model.test_image(img)
+		selem = square(20)
+		opened = opening(grayscale_prediciton,selem)
+		label_img = label(opened)
+		regions = regionprops(label_img)
+		boxes = []
+		for props in regions:
+			if props.area>50*50 and props.area<500*500 and (props.major_axis_length/props.minor_axis_length)<=2 and (props.major_axis_length/props.minor_axis_length)>=1.25:
+				x0,y0 = props.centroid
+				orientation = props.orientation
+				x1 = x0 + math.cos(orientation) * 0.5 * props.major_axis_length
+				y1 = y0 - math.sin(orientation) * 0.5 * props.major_axis_length
+				x2 = x0 - math.sin(orientation) * 0.5 * props.minor_axis_length
+				y2 = y0 - math.cos(orientation) * 0.5 * props.minor_axis_length
+				boxes.append([x1,y1,x2,y2])
+		return boxes
 
 
 if __name__ == '__main__':
-	train_data_root="ECE276A_HW1/trainset/"
-	train_data_split=0.9
-	classes = ["barrel_blue","non_barrel_blue","rest"]
-	DM = DataLoader(train_data_root,train_data_split,classes)
-	my_detector = BarrelDetector(10,DM,classes)
+	my_detector = BarrelDetector()
 	figure_num = 0
-	for file_name in DM.train_files:
+	root_location = "ECE276A_HW1/trainset/"
+	for file_name in os.listdir(root_location):
 		figure_num = figure_num + 1
-		plt.figure(figure_num)
-		file_name = DM.root_location + file_name
-		plt.subplot(3,1,1)
-		image = plt.imread(file_name)
-		plt.imshow(image),plt.xticks([]),plt.yticks([]),plt.title("Original image")
+		fig = plt.figure(figure_num)
+		file_name = root_location + file_name
+		ax1 = plt.subplot(3,1,1)
+		image = cv2.imread(file_name)
+		image = cv2.cvtColor(image,cv2.COLOR_BGR2RGB)
+		ax1.imshow(image)
 		mask = my_detector.segment_image(image)
-		plt.subplot(3,1,2)
-		plt.imshow(mask,cmap="gray"),plt.xticks([]),plt.yticks([]),plt.title("Class1")
-		plt.subplot(3,1,3)
-		gray_scale = my_detector.get_bounding_box(image)
-		plt.imshow(gray_scale,cmap="gray"),plt.xticks([]),plt.yticks([]),plt.title("Class1")
+		ax2 = plt.subplot(3,1,2)
+		ax2.imshow(mask,cmap="gray")
+		ax3 = plt.subplot(3,1,3)
+		#rect = my_detector.get_bounding_box(image)
+		ax3.imshow(image,cmap="gray")
+		#ax.plot((x0, x1), (y0, y1), '-r', linewidth=2.5)
+		#ax3.add_patch(rect)
+		plt.savefig("results/figure{}.png".format(figure_num))
 		plt.show()
-

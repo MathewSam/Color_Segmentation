@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 from skimage import color,exposure
 import pickle
 
-from DataLoader import DataLoader
+#from DataLoader import DataLoader
 
 class LogisticRegression:
     def __init__(self,window_size,num_classes=1):
@@ -66,7 +66,6 @@ class LogisticRegression:
             epochs:number of epochs for training
             default value:5
             data type:int
-
             learning_rate:learning rate of model
             default value:0.001
             datatype: float
@@ -86,9 +85,9 @@ class LogisticRegression:
                 if sample_num%1000==0:
                     CE = -label*np.log(y+epsilon) - (1-label)*np.log(1-y+epsilon)
                     error_plot.append(0.1*CE[0,0] + 0.9*error_plot[-1])
-            if(epoch%10==0):
-                print("Completed {} percent ".format(epoch*100//epochs)) 
-                learning_rate = learning_rate/10
+            #if(epoch%10==0):
+            #    print("Completed {} percent ".format(epoch*100//epochs)) 
+                #learning_rate = learning_rate/10
         
         plt.plot(error_plot,label="Cross entropy")
         plt.xlabel("sample_num x1000")
@@ -107,7 +106,6 @@ class LogisticRegression:
             color_space: sets color space for use
             default_value:YUV
             data type:str
-
             confidence:set confidence of classification
             default_value:0.9
             data_type:float
@@ -125,9 +123,15 @@ class LogisticRegression:
 
 
 if __name__ == "__main__":
-    DM = DataLoader("ECE276A_HW1/trainset/",0.9,["barrel_blue","non_barrel_blue","rest"])
+    train_data_root="ECE276A_HW1/trainset/"
+    train_data_split=0.9
+    classes = ["barrel_blue","rest"]
+    DM = DataLoader(train_data_root,train_data_split,classes)
+    pickle_file="Stored_Values2.pickle"
     window_size = 10
-    gen = DM.data_generator("labeled_data/Stored_Values.pickle",window_size=window_size,step_size=2)
-    model = LogisticRegression(window_size,num_classes=3)
-    model.train(gen,epochs=1000,learning_rate=0.01)
-    pickle_file = "trained_models/model2.pickle"
+    gen = DM.data_generator(pickle_file,window_size=window_size,step_size=2)
+    model = LogisticRegression(window_size,num_classes=2)
+    model.train(gen,epochs=100,learning_rate=0.1)
+    with open("trained_model.pickle","wb") as handle:
+        pickle.dump(model, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
