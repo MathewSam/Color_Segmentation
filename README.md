@@ -1,5 +1,17 @@
-# GMM
-This project aims to build an object detection model using Logistic Regression algorithm.
+# Color Segementation
+<p>This project aims to build an object detection model using Logistic Regression algorithm. The provided dataset consists of scenery with blue drums in it. The objective is to build a color segementation model using logistic regression to "detect" pixels with high probability of being part of a barrel.</p>
+
+## Approach
+### Preprocessing
+<p>Not a lot of preprocessing was required since the barrels in the training set were placed in environments without a lot of other blue objects in the scene. To avoid confusion between the barrels and the white spaces in the image, the images where transfered to the YUV space. The U component is basically B-G from the RGB space. This allows filtering out white spaces from the data and only purely blue objects are left behind</p>
+
+### Acquiring training data
+<p>The training data is acquired using a windowing process that took wxw windows from images and fed it into the model. A generator was used to sequentially provide the data to the model.</p>
+
+### Training procedure
+<p>The model was trained using stochastic gradient descent with parameter updates with every element. Stochastic gradient descent is more robust that batch or mini batch gradient descent since the model enconters a lot of noise. This randomness in the gradient update step prevents the model from falling into local minima requiring fewer iterations</p>
+
+The current model was trained with a learning rate of 0.1 for 30 epochs using about 90% of the training data provided 
 
 ## Programming environment
 For the purposes of this project, the model was built using a virtual environment.
