@@ -6,6 +6,7 @@ import pickle
 import os, cv2 ,math
 import numpy as np
 from skimage import color
+from skimage.filters import threshold_otsu, rank
 from skimage.measure import label, regionprops
 from skimage.morphology import disk,square,erosion,dilation,opening,closing
 from skimage.feature import match_template
@@ -24,48 +25,107 @@ class BarrelDetector():
 		else:
 			self.num_classes = 2
 			self.window_size = window_size
-			self.W =  np.array([[ 1.44429789 ,-0.71831929],[ 1.23343677, -0.46352353],[ 0.94217466 ,-0.47793628],[ 1.23097975 ,-0.45947272]
- 					,[ 1.24638665 ,-0.61057217],[ 1.13387323 ,-0.1762929 ],[ 1.49716415 ,-0.44960327],[ 1.58658584 ,-1.06533627],[ 1.79257469 ,-1.24450378],[ 1.71664372 ,-0.66310291]
- 					,[ 1.65677011 ,-0.63227658],[ 0.63724715 ,-0.40585589],[ 0.80569214 ,-0.06297755],[ 1.12562776 ,-0.04196804],[ 0.90435214 ,-0.37434377],[ 0.7980025  , 0.09246189]
- 					,[ 0.95486723 , 0.20901656],[ 1.50319529 ,-0.21459028],[ 1.18314381 , 0.02476681],[ 1.6366031  ,-0.39264642],[ 1.06434469 ,-0.01744503],[ 0.89855076 , 0.50563868]
- 					,[ 0.73937198 , 0.59084335],[ 0.4466759  , 0.19930006],[ 0.65474798 ,-0.0476019 ],[ 1.05939828 ,-0.3260522 ],[ 1.14702789 , 0.23927245],[ 0.67941532 ,-0.26156459]
- 					,[ 1.00318722 , 0.27782848],[ 1.49982828 ,-0.9202439 ],[ 0.80000177 ,-0.17574968],[ 0.98983021 , 0.10523142],[ 0.58774994 , 0.41546616],[ 0.7061369  , 0.32844446]
- 					,[ 0.73979775 , 0.47637302],[ 0.37184392 , 0.12942374],[ 0.4285918  , 0.44054787],[ 1.00333577 ,-0.18816953],[ 0.85126254 , 0.43872816],[ 1.6228581  ,-0.26696199]
- 					,[ 0.66291248 , 0.21116744],[ 0.69991691 , 0.11894874],[ 0.55282693 , 0.74642268],[ 0.60562076 , 0.14280004],[ 0.79386927 ,-0.12008949],[ 0.28831534 , 0.28103874]
- 					,[ 0.20615625 , 0.23969521],[ 0.69319358 , 0.45322822],[ 0.61487954 , 0.45258591],[ 1.09628772 ,-0.19363301],[ 1.00212606 , 0.2003101 ],[ 1.19278385 ,-0.20103697]
- 					,[ 0.23382989 , 0.16378893],[ 0.19129496 , 0.52294712],[ 0.74781421 , 0.66377636],[ 0.58840831 , 0.68461621],[ 0.50946408 , 0.88252117],[ 1.01266149 , 0.25703474]
- ,[ 1.14848683 , 0.69180874]
- ,[ 1.47196995 ,-0.54569708]
- ,[ 0.56156993 , 0.42495895]
- ,[ 0.60169816 , 0.41280172]
- ,[ 0.3081048  , 0.19836249]
- ,[ 0.86397156 , 0.37988395]
- ,[ 0.62859542 , 0.34888556]
- ,[ 0.26390523 , 0.60544192]
- ,[ 0.25587942 , 0.50606613]
- ,[ 0.88232025 , 0.68287181]
- ,[ 0.5243625  ,-0.0571237 ]
- ,[ 1.56184381 , 0.13940157]
- ,[ 0.80970072 ,-0.49177352]
- ,[ 1.28009968 ,-0.43066141]
- ,[ 0.72776828 ,-0.31018522]
- ,[ 0.513788   , 0.61859869]
- ,[ 1.28527962 , 0.6403274 ]
- ,[ 0.84280775 , 0.50469703]
- ,[ 0.97174832 , 0.14131863]
- ,[ 0.80016828 , 0.37123895]
- ,[ 1.07513963 , 0.45421728]
- ,[ 1.46590889 ,-0.55892372]
- ,[ 0.90758035 , 0.10132666]
- ,[ 1.21858775 ,-0.18205653]
- ,[ 1.20395154 , 0.39288155]
- ,[ 1.00774955 ,-0.363348  ]
- ,[ 0.60816791 , 0.4065176 ]
- ,[ 1.32023878 ,-0.39155454]
- ,[ 0.93562856 , 0.44638841]
- ,[ 0.54791427 , 0.31857913],[ 1.05713969 ,-0.09699852],[ 1.47573752 ,-0.30010227],[ 1.45869406 ,-0.45805875],[ 1.81044942 , 0.15034184]
- ,[ 0.9063961  ,-0.05520217],[ 0.82589407 ,-0.2968959 ],[ 1.12546753 ,-0.29288948],[ 1.11255482 ,-0.49130009],[ 0.83886659 ,-0.38866815],[ 1.12491984 ,-0.10111816],[ 1.47264762 ,-0.09437953],[ 1.25180483 ,-0.29627904]])
-		self.b = np.array([[-1.81666353 , 3.23624807]])
+			self.W = np.array([[ 1.71697673 ,-1.26367697],
+ [ 1.53335629 ,-1.06336256],
+ [ 1.24487625 ,-1.08333945],
+ [ 1.54904934 ,-1.0956119 ],
+ [ 1.55892478 ,-1.23564843],
+ [ 1.38412832 ,-0.67680309],
+ [ 1.6579981  ,-0.77127117],
+ [ 1.6909461  ,-1.27405679],
+ [ 2.03187581 ,-1.72310603],
+ [ 2.35370275 ,-1.93722097],
+ [ 1.75454258 ,-0.82782152],
+ [ 0.77021436 ,-0.67179031],
+ [ 0.92465042 ,-0.30089412],
+ [ 1.23336417 ,-0.25744085],
+ [ 0.98063547 ,-0.52691043],
+ [ 0.81014663 , 0.06817363],
+ [ 0.87574209 , 0.36726683],
+ [ 1.34375976 , 0.10428078],
+ [ 1.12919707 , 0.13266028],
+ [ 1.94826146 ,-1.01596313],
+ [ 1.10632223 ,-0.10140011],
+ [ 1.00446984 , 0.29380051],
+ [ 0.83732022 , 0.39494687],
+ [ 0.53037033 , 0.0319112 ],
+ [ 0.68414985 ,-0.10640564],
+ [ 0.98203027 ,-0.17131617],
+ [ 0.96460972 , 0.60410879],
+ [ 0.39237254 , 0.31252097],
+ [ 0.81719994 , 0.64980304],
+ [ 1.66637991 ,-1.25334716],
+ [ 0.79893014 ,-0.17360642],
+ [ 1.06446069 ,-0.04402954],
+ [ 0.66302694 , 0.26491216],
+ [ 0.7958242  , 0.14906986],
+ [ 0.77573279 , 0.40450295],
+ [ 0.26761164 , 0.33788829],
+ [ 0.20201225 , 0.89370697],
+ [ 0.68344424 , 0.45161353],
+ [ 0.62592197 , 0.8894093 ],
+ [ 1.73491182 ,-0.49106942],
+ [ 0.69076839 , 0.15545562],
+ [ 0.75083963 , 0.0171033 ],
+ [ 0.61274519 , 0.62658617],
+ [ 0.72120623 ,-0.08837089],
+ [ 0.85184926 ,-0.23604947],
+ [ 0.19772576 , 0.4622179 ],
+ [-0.02960906 , 0.71122582],
+ [ 0.35635143 , 1.12691252],
+ [ 0.39565686 , 0.89103127],
+ [ 1.19643168 ,-0.39392094],
+ [ 1.06126468 , 0.08203286],
+ [ 1.24130796 ,-0.2980852 ],
+ [ 0.30255355 , 0.02634161],
+ [ 0.29149014 , 0.32255676],
+ [ 0.79892838 , 0.56154803],
+ [ 0.501266   , 0.85890083],
+ [ 0.29436923 , 1.31271087],
+ [ 0.70170359 , 0.87895055],
+ [ 0.94063152 , 1.10751936],
+ [ 1.58451986 ,-0.7707969 ],
+ [ 0.62698649 , 0.29412583],
+ [ 0.65526565 , 0.30566674],
+ [ 0.33711689 , 0.14033831],
+ [ 0.89159217 , 0.32464274],
+ [ 0.61785468 , 0.37036704],
+ [ 0.14824654 , 0.8367593 ],
+ [ 0.03071353 , 0.95639791],
+ [ 0.54188744 , 1.36373742],
+ [ 0.27974134 , 0.43211861],
+ [ 1.66000249 ,-0.05691579],
+ [ 0.98447143 ,-0.84131494],
+ [ 1.46988228 ,-0.81022662],
+ [ 0.87497531 ,-0.60459929],
+ [ 0.65813469 , 0.32990532],
+ [ 1.3491013  , 0.51268404],
+ [ 0.79005878 , 0.61019497],
+ [ 0.83659299 , 0.41162929],
+ [ 0.5792906  , 0.8129943 ],
+ [ 0.97238105 , 0.65973444],
+ [ 1.71190788 ,-1.0509217 ],
+ [ 1.25570706 ,-0.59492676],
+ [ 1.5624916  ,-0.86986423],
+ [ 1.49512207 ,-0.18945951],
+ [ 1.2757876  ,-0.8994241 ],
+ [ 0.78671523 , 0.04942296],
+ [ 1.3625909  ,-0.47625877],
+ [ 0.87245698 , 0.57273157],
+ [ 0.40946194 , 0.59548379],
+ [ 1.07507595 ,-0.13287104],
+ [ 1.87179426 ,-1.09221575],
+ [ 2.07773138 ,-1.6961334 ],
+ [ 2.41335822 ,-1.05547576],
+ [ 1.4703667  ,-1.18314337],
+ [ 1.35493527 ,-1.3549783 ],
+ [ 1.52976    ,-1.10147442],
+ [ 1.37046998 ,-1.00713041],
+ [ 0.97633099 ,-0.66359694],
+ [ 1.20821827 ,-0.26771501],
+ [ 1.71070577 ,-0.57049583],
+ [ 1.85996464 ,-1.51259867]])
+		self.b = np.array([[-1.96700324 , 3.53692749]])
 
 	
 	@staticmethod
@@ -104,15 +164,23 @@ class BarrelDetector():
 		assert isinstance(epochs,int),"Number of epochs is an integer"
 		assert isinstance(learning_rate,float),"Learning rate is a decimal"
 		assert learning_rate<1
-
+		
+		error_plot = [0]
 		for epoch in range(epochs):
+			loss = 0
 			for sample,label in sample_generator:
 				y = self.sigmoid(sample.reshape(1,-1),self.W,self.b)
 				gradient = label - y
+				gradient = gradient*np.array([1,2])
 				self.W = self.W + learning_rate*gradient*sample.reshape(-1,1)
 				self.b = self.b + learning_rate*gradient
+				CE = np.mean(-label*np.log(y+epsilon) - (1-label)*np.log(1-y+epsilon))
+				loss = (loss*0.9) + (CE*0.1)
+			error_plot.append(loss)
 			learning_rate = learning_rate*0.99
 
+		plt.plot(error_plot)
+		plt.show()
 		print("Weight matrix = \n {}\n".format(self.W))
 		print("bias matrix = \n {}\n".format(self.b))
 	def test_image(self,input_image):
@@ -143,6 +211,7 @@ class BarrelDetector():
 				mask_img - a binary image with 1 if the pixel in the original image is blue and 0 otherwise
 		'''
 		# YOUR CODE HERE
+		img = cv2.cvtColor(img,cv2.COLOR_BGR2RGB)
 		grayscale_prediciton = self.test_image(img)[:,:,0]
 		#predictions =  (grayscale_prediciton[:,:,0] - np.min(grayscale_prediciton[:,:,0])/(np.max(grayscale_prediciton[:,:,0]) - np.min(grayscale_prediciton[:,:,0]))
 		grayscale_prediciton = (grayscale_prediciton - np.min(grayscale_prediciton))/(np.max(grayscale_prediciton) - np.min(grayscale_prediciton))
@@ -163,21 +232,30 @@ class BarrelDetector():
 			Our solution uses xy-coordinate instead of rc-coordinate. More information: http://scikit-image.org/docs/dev/user_guide/numpy_images.html#coordinate-conventions
 		'''
 		# YOUR CODE HERE
-		grayscale_prediciton = self.test_image(img)
-		selem = square(20)
-		opened = opening(grayscale_prediciton,selem)
+		img = cv2.cvtColor(img,cv2.COLOR_BGR2RGB)
+		grayscale_prediction = self.test_image(img)[:,:,0]
+		grayscale_prediction = (grayscale_prediction - np.min(grayscale_prediction))/(np.max(grayscale_prediction) - np.min(grayscale_prediction))
+		
+		if(np.mean(grayscale_prediction)>0.1):
+			grayscale_prediction =grayscale_prediction>=0.2
+		else:
+			grayscale_prediction = grayscale_prediction>=0.9
+		
+		selem = disk(10)
+		opened = closing(grayscale_prediction,selem)
+
 		label_img = label(opened)
-		regions = regionprops(label_img)
+		regions = regionprops(label_img,coordinates='xy')
 		boxes = []
 		for props in regions:
-			if props.area>50*50 and props.area<500*500 and (props.major_axis_length/props.minor_axis_length)<=2 and (props.major_axis_length/props.minor_axis_length)>=1.25:
-				x0,y0 = props.centroid
-				orientation = props.orientation
-				x1 = x0 + (math.cos(orientation) * 0.5 * props.major_axis_length)
-				y1 = y0 - (math.sin(orientation) * 0.5 * props.major_axis_length)
-				x2 = x0 - (math.sin(orientation) * 0.5 * props.minor_axis_length)
-				y2 = y0 - (math.cos(orientation) * 0.5 * props.minor_axis_length)
-				boxes.append([x2,y2,x1,y1])
+			y0, x0 = props.centroid
+			if props.minor_axis_length >0 and props.major_axis_length/props.minor_axis_length<3 and props.major_axis_length/props.minor_axis_length>1.2 and props.area>(20*20):
+				print("Ration : {}".format(props.major_axis_length/props.minor_axis_length))
+				ymin = int(y0 - (props.major_axis_length/2))
+				ymax = int(y0 + (props.major_axis_length/2))
+				xmax = int(x0 + (props.minor_axis_length/2))
+				xmin = int(x0 - (props.minor_axis_length/2))
+				boxes.append([xmin,ymin,xmax,ymax])
 		return boxes
 
 
@@ -189,8 +267,8 @@ if __name__ == '__main__':
 #	classes = ["barrel_blue","rest"]
 #	DM = DataLoader(train_data_root,train_data_split,classes)
 #	pickle_file="Stored_Values2.pickle"
-#	gen = DM.data_generator(pickle_file,window_size=10,step_size=2)
-#	my_detector.train(gen,epochs=30,learning_rate=0.01)
+#	gen = DM.data_generator(pickle_file,window_size=10,step_size=5)
+#	my_detector.train(gen,epochs=30,learning_rate=0.1)
 	
 	figure_num = 0
 	root_location = "ECE276A_HW1/trainset/"
@@ -200,15 +278,18 @@ if __name__ == '__main__':
 		file_name = root_location + file_name
 		ax1 = plt.subplot(3,1,1)
 		image = cv2.imread(file_name)
-		image = cv2.cvtColor(image,cv2.COLOR_BGR2RGB)
 		ax1.imshow(image)
 		mask = my_detector.segment_image(image)
 		ax2 = plt.subplot(3,1,2)
 		ax2.imshow(mask,cmap="gray")
 		ax3 = plt.subplot(3,1,3)
-		#rect = my_detector.get_bounding_box(image)
+		rect = my_detector.get_bounding_box(image)
 		ax3.imshow(image,cmap="gray")
-		#ax.plot((x0, x1), (y0, y1), '-r', linewidth=2.5)
-		#ax3.add_patch(rect)
+		for c in rect:
+			minc, minr, maxc, maxr = c
+			bx = (minc, maxc, maxc, minc, minc)
+			by = (minr, minr, maxr, maxr, minr)
+			ax3.plot(bx, by, '-r', linewidth=2.5)
 		plt.savefig("results/figure{}.png".format(figure_num))
 		plt.show()
+		
