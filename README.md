@@ -11,7 +11,30 @@
 ### Training procedure
 <p>The model was trained using stochastic gradient descent with parameter updates with every element. Stochastic gradient descent is more robust that batch or mini batch gradient descent since the model enconters a lot of noise. This randomness in the gradient update step prevents the model from falling into local minima requiring fewer iterations</p>
 
-The current model was trained with a learning rate of 0.1 for 30 epochs using about 90% of the training data provided 
+The current model was trained with a learning rate of 0.01 for 30 epochs using about 90% of the training data provided 
+
+## Files
+## DataLoader.py
+This file contains the code used to label and store the training and validation data. The functional modules used are :
+### data_generator
+To generate batches of data for training clorsegmentation models
+### Visualize_Labels
+Module to visualize labels acquired from the Labeling module
+### Labeling_module
+Module to label data in consideration.
+
+All other functions in this file were built for debugging purposes.
+
+## barrel_detector.py
+This file contains the code used to label and store the training and validation data. The functional modules used are :
+### train
+Module takes up a sample generator(acquired from DataLoader) and uses samples to carry out gradient descent using stochastic gradient descent.
+### test_image
+Module tests input image using sliding windows to predict if center pixel is of barrel class or not.
+### segement_image
+Module used to segement image to get segementation masks
+### get_bounding_box
+Find the bounding box of the blue barrel
 
 ## Programming environment
 For the purposes of this project, the model was built using a virtual environment.
