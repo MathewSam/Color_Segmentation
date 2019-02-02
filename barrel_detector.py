@@ -14,9 +14,30 @@ from skimage.feature import match_template
 import matplotlib.pyplot as plt 
 
 class BarrelDetector():
-	def __init__(self,window_size=10,num_classes=2,Train=False,pickle_file="trained_model.pickle"):
+	def __init__(self,window_size=10,num_classes=2,Train=False):
 		"""
+		Initializes the barrel detector module to detect barrels in the image. decides if model need to be trained again from scratch
+		using the Train keyword argument
+		Args:
+		---
+			self:pointer to current instance of the class
+		Kwargs:
+		------
+			window_size: size of window for training
+			default: 10
+			datatype: int
+
+			num_classes: number of classes to train the model for
+			default: 2
+			datatype:int
+
+			Train:boolean value to decide whether the model needs to be trained again from scratch
+			default:False
+			datatype:bool
 		"""
+		assert isinstance(window_size,int),"Please enter an integer value for window size"
+		assert isinstance(num_classes,int),"Number of classes must be an integer"
+		assert isinstance(Train,bool),"Train must be a boolean value"
 		if Train:
 			self.num_classes = num_classes
 			self.W = np.random.rand(window_size**2,num_classes)
@@ -166,7 +187,7 @@ class BarrelDetector():
 		assert learning_rate<1
 		
 		error_plot = [0]
-		for epoch in range(epochs):
+		for _ in range(epochs):
 			loss = 0
 			for sample,label in sample_generator:
 				y = self.sigmoid(sample.reshape(1,-1),self.W,self.b)
@@ -179,10 +200,15 @@ class BarrelDetector():
 			error_plot.append(loss)
 			learning_rate = learning_rate*0.99
 
-		plt.plot(error_plot)
+		plt.plot(error_plot,label="Training error")
+		plt.grid()
+		plt.xlabel("epochs")
+		plt.ylabel("Cross Entropy loss")
+		plt.legend()
 		plt.show()
 		print("Weight matrix = \n {}\n".format(self.W))
 		print("bias matrix = \n {}\n".format(self.b))
+
 	def test_image(self,input_image):
 		"""
 		Testing images using logistoic regression
@@ -215,6 +241,9 @@ class BarrelDetector():
 		grayscale_prediciton = self.test_image(img)[:,:,0]
 		#predictions =  (grayscale_prediciton[:,:,0] - np.min(grayscale_prediciton[:,:,0])/(np.max(grayscale_prediciton[:,:,0]) - np.min(grayscale_prediciton[:,:,0]))
 		grayscale_prediciton = (grayscale_prediciton - np.min(grayscale_prediciton))/(np.max(grayscale_prediciton) - np.min(grayscale_prediciton))
+		
+		#thresh = threshold_otsu(grayscale_prediciton)
+		grayscale_prediciton =grayscale_prediciton>=0.8
 		return grayscale_prediciton
 
 	def get_bounding_box(self, img):
@@ -236,12 +265,17 @@ class BarrelDetector():
 		grayscale_prediction = self.test_image(img)[:,:,0]
 		grayscale_prediction = (grayscale_prediction - np.min(grayscale_prediction))/(np.max(grayscale_prediction) - np.min(grayscale_prediction))
 		
-		if(np.mean(grayscale_prediction)>0.1):
-			grayscale_prediction =grayscale_prediction>=0.2
+		#if(np.mean(grayscale_prediction)>0.1):
+		#	grayscale_prediction =grayscale_prediction>=0.2
+		#else:
+		#	grayscale_prediction = grayscale_prediction>=0.9
+		if(np.mean(grayscale_prediction)<0.1):
+			thresh = threshold_otsu(grayscale_prediction)
+			grayscale_prediction =grayscale_prediction>=thresh
 		else:
-			grayscale_prediction = grayscale_prediction>=0.9
-		
-		selem = disk(10)
+			grayscale_prediction =grayscale_prediction>=0.8
+
+		selem = disk(15)
 		opened = closing(grayscale_prediction,selem)
 
 		label_img = label(opened)
@@ -249,47 +283,48 @@ class BarrelDetector():
 		boxes = []
 		for props in regions:
 			y0, x0 = props.centroid
-			if props.minor_axis_length >0 and props.major_axis_length/props.minor_axis_length<3 and props.major_axis_length/props.minor_axis_length>1.2 and props.area>(20*20):
-				print("Ration : {}".format(props.major_axis_length/props.minor_axis_length))
+			if props.minor_axis_length >0 and props.major_axis_length/props.minor_axis_length<3 and abs(180*props.orientation/math.pi)>75 and props.area>1000:
+				#print("Ration : {}".format(180*props.orientation/math.pi))
 				ymin = int(y0 - (props.major_axis_length/2))
 				ymax = int(y0 + (props.major_axis_length/2))
 				xmax = int(x0 + (props.minor_axis_length/2))
 				xmin = int(x0 - (props.minor_axis_length/2))
 				boxes.append([xmin,ymin,xmax,ymax])
+				print((xmin,xmax,ymin,ymax))
+		print('\n')
 		return boxes
 
 
 if __name__ == '__main__':
 	from DataLoader import DataLoader
 	my_detector = BarrelDetector(window_size=10,num_classes=2,Train=False)
-#	train_data_root="ECE276A_HW1/trainset/"
-#	train_data_split=0.9
-#	classes = ["barrel_blue","rest"]
-#	DM = DataLoader(train_data_root,train_data_split,classes)
-#	pickle_file="Stored_Values2.pickle"
-#	gen = DM.data_generator(pickle_file,window_size=10,step_size=5)
-#	my_detector.train(gen,epochs=30,learning_rate=0.1)
+	#train_data_root="ECE276A_HW1/trainset/"
+	#train_data_split=0.9
+	#classes = ["barrel_blue","rest"]
+	#DM = DataLoader(train_data_root,train_data_split,classes)
+	#pickle_file="Stored_Values2.pickle"
+	#gen = DM.data_generator(pickle_file,window_size=10,step_size=5)
+	#my_detector.train(gen,epochs=30,learning_rate=0.01)
 	
-	figure_num = 0
+	#figure_num = 0
 	root_location = "ECE276A_HW1/trainset/"
 	for file_name in os.listdir(root_location):
-		figure_num = figure_num + 1
-		fig = plt.figure(figure_num)
+		plt.figure(1)
 		file_name = root_location + file_name
-		ax1 = plt.subplot(3,1,1)
 		image = cv2.imread(file_name)
-		ax1.imshow(image)
+		img = cv2.cvtColor(image,cv2.COLOR_BGR2RGB)
+		plt.imshow(img)
+		plt.figure(2)
 		mask = my_detector.segment_image(image)
-		ax2 = plt.subplot(3,1,2)
-		ax2.imshow(mask,cmap="gray")
-		ax3 = plt.subplot(3,1,3)
+		plt.imshow(mask,cmap="gray")
+		plt.figure(3)
 		rect = my_detector.get_bounding_box(image)
-		ax3.imshow(image,cmap="gray")
+		plt.imshow(img)
 		for c in rect:
 			minc, minr, maxc, maxr = c
 			bx = (minc, maxc, maxc, minc, minc)
 			by = (minr, minr, maxr, maxr, minr)
-			ax3.plot(bx, by, '-r', linewidth=2.5)
-		plt.savefig("results/figure{}.png".format(figure_num))
+			plt.plot(bx, by, '-r', linewidth=2.5)
+		#plt.savefig("results/figure{}.png".format(figure_num))
 		plt.show()
 		
